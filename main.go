@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // isGitRepo checks if the provided directory is within a git repository
@@ -81,8 +82,34 @@ func listGitFiles(dir string) ([]string, error) {
 	return files, nil
 }
 
-func printFileContents(dir string, files []string) {
+// shouldExclude checks if a file should be excluded based on the exclude patterns
+func shouldExclude(file string, excludePatterns []string) bool {
+	for _, pattern := range excludePatterns {
+		// Check if file starts with the pattern (directory exclusion)
+		if strings.HasPrefix(file, pattern) {
+			return true
+		}
+		
+		// Check if file ends with the pattern (extension exclusion)
+		if strings.HasSuffix(file, pattern) {
+			return true
+		}
+		
+		// Check if pattern is exactly the file
+		if file == pattern {
+			return true
+		}
+	}
+	return false
+}
+
+func printFileContents(dir string, files []string, excludePatterns []string) {
 	for _, file := range files {
+		// Skip excluded files
+		if shouldExclude(file, excludePatterns) {
+			continue
+		}
+		
 		// Construct full path
 		fullPath := filepath.Join(dir, file)
 		
@@ -99,8 +126,12 @@ func printFileContents(dir string, files []string) {
 	}
 }
 
-func printFileList(files []string) {
+func printFileList(files []string, excludePatterns []string) {
 	for _, file := range files {
+		// Skip excluded files
+		if shouldExclude(file, excludePatterns) {
+			continue
+		}
 		fmt.Println(file)
 	}
 }
@@ -109,6 +140,7 @@ func main() {
 	// Define command line flags
 	dirFlag := flag.String("dir", ".", "Directory to operate in")
 	dryFlag := flag.Bool("dry", false, "Only list files without showing contents")
+	excludeFlag := flag.String("exclude", "", "Comma-separated list of patterns to exclude (e.g. 'assets/,.png,.bin')")
 
 	// Custom usage function to show both commands and flags
 	flag.Usage = func() {
@@ -119,6 +151,12 @@ func main() {
 
 	// Parse flags
 	flag.Parse()
+
+	// Process exclude patterns
+	var excludePatterns []string
+	if *excludeFlag != "" {
+		excludePatterns = strings.Split(*excludeFlag, ",")
+	}
 
 	// Check if directory is in a git repository
 	if !isGitRepo(*dirFlag) {
@@ -135,9 +173,9 @@ func main() {
 
 	if *dryFlag {
 		// Only print the list of files
-		printFileList(files)
+		printFileList(files, excludePatterns)
 	} else {
 		// Print each file's name and contents
-		printFileContents(*dirFlag, files)
+		printFileContents(*dirFlag, files, excludePatterns)
 	}
 }
