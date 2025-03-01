@@ -5,11 +5,9 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // isGitRepo checks if the provided directory is within a git repository
@@ -83,7 +81,6 @@ func listGitFiles(dir string) ([]string, error) {
 	return files, nil
 }
 
-// printFileContents prints the name and contents of each file
 func printFileContents(dir string, files []string) {
 	for _, file := range files {
 		// Construct full path
@@ -92,8 +89,7 @@ func printFileContents(dir string, files []string) {
 		// Print file name
 		fmt.Printf("\n=== %s ===\n\n", file)
 		
-		// Read and print file contents
-		content, err := ioutil.ReadFile(fullPath)
+		content, err := os.ReadFile(fullPath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", fullPath, err)
 			continue
