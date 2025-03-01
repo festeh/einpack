@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // isGitRepo checks if the provided directory is within a git repository
@@ -37,18 +41,80 @@ func isGitRepo(dir string) bool {
 	return err == nil
 }
 
+// listGitFiles lists all files tracked by git in the specified directory
+func listGitFiles(dir string) ([]string, error) {
+	// Get absolute path
+	absPath, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving path: %v", err)
+	}
+
+	// Change to the directory
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("error getting current directory: %v", err)
+	}
+	defer os.Chdir(currentDir) // Ensure we change back to original directory
+
+	err = os.Chdir(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("error changing to directory %s: %v", absPath, err)
+	}
+
+	// Run git ls-files to get all tracked files
+	cmd := exec.Command("git", "ls-files")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err = cmd.Run()
+	if err != nil {
+		return nil, fmt.Errorf("error running git ls-files: %v", err)
+	}
+
+	// Split output by newlines to get file list
+	var files []string
+	scanner := bufio.NewScanner(&out)
+	for scanner.Scan() {
+		file := scanner.Text()
+		if file != "" {
+			files = append(files, file)
+		}
+	}
+
+	return files, nil
+}
+
+// printFileContents prints the name and contents of each file
+func printFileContents(dir string, files []string) {
+	for _, file := range files {
+		// Construct full path
+		fullPath := filepath.Join(dir, file)
+		
+		// Print file name
+		fmt.Printf("\n=== %s ===\n\n", file)
+		
+		// Read and print file contents
+		content, err := ioutil.ReadFile(fullPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", fullPath, err)
+			continue
+		}
+		
+		fmt.Println(string(content))
+	}
+}
+
 func main() {
 	// Define command line flags
 	dirFlag := flag.String("dir", ".", "Directory to operate in")
 
 	// Custom usage function to show both commands and flags
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: ep [flags] \n\n")
+		fmt.Fprintf(os.Stderr, "Usage: ep [flags]\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 	}
 
-	// Parse flags but keep the command and its args for later processing
+	// Parse flags
 	flag.Parse()
 
 	// Check if directory is in a git repository
@@ -56,4 +122,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %s is not in a git repository\n", *dirFlag)
 		os.Exit(1)
 	}
+
+	// Get list of git files
+	files, err := listGitFiles(*dirFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print each file's name and contents
+	printFileContents(*dirFlag, files)
 }
