@@ -99,9 +99,16 @@ func printFileContents(dir string, files []string) {
 	}
 }
 
+func printFileList(files []string) {
+	for _, file := range files {
+		fmt.Println(file)
+	}
+}
+
 func main() {
 	// Define command line flags
 	dirFlag := flag.String("dir", ".", "Directory to operate in")
+	dryFlag := flag.Bool("dry", false, "Only list files without showing contents")
 
 	// Custom usage function to show both commands and flags
 	flag.Usage = func() {
@@ -126,6 +133,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Print each file's name and contents
-	printFileContents(*dirFlag, files)
+	if *dryFlag {
+		// Only print the list of files
+		printFileList(files)
+	} else {
+		// Print each file's name and contents
+		printFileContents(*dirFlag, files)
+	}
 }
