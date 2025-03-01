@@ -43,20 +43,13 @@ func main() {
 
 	// Custom usage function to show both commands and flags
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: ep [flags] <command>\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: ep [flags] \n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 	}
 
 	// Parse flags but keep the command and its args for later processing
 	flag.Parse()
-	args := flag.Args()
-
-	// Check if any command was provided
-	if len(args) < 1 {
-		flag.Usage()
-		os.Exit(1)
-	}
 
 	// Check if directory is in a git repository
 	if !isGitRepo(*dirFlag) {
