@@ -140,10 +140,41 @@ func shouldExclude(file string, excludePatterns []string) bool {
 	return false
 }
 
-func printFileContents(dir string, files []string, excludePatterns []string, grepPattern string) {
+// shouldInclude checks if a file should be included based on the include patterns
+func shouldInclude(file string, includePatterns []string) bool {
+	// If no include patterns specified, include all files
+	if len(includePatterns) == 0 {
+		return true
+	}
+	
+	for _, pattern := range includePatterns {
+		// Check if file starts with the pattern (directory inclusion)
+		if strings.HasPrefix(file, pattern) {
+			return true
+		}
+		
+		// Check if file ends with the pattern (extension inclusion)
+		if strings.HasSuffix(file, pattern) {
+			return true
+		}
+		
+		// Check if pattern is exactly the file
+		if file == pattern {
+			return true
+		}
+	}
+	return false
+}
+
+func printFileContents(dir string, files []string, excludePatterns []string, includePatterns []string, grepPattern string) {
 	for _, file := range files {
-		// Skip excluded files
+		// Skip excluded files (exclude has priority)
 		if shouldExclude(file, excludePatterns) {
+			continue
+		}
+		
+		// Skip files that don't match include patterns
+		if !shouldInclude(file, includePatterns) {
 			continue
 		}
 		
@@ -184,10 +215,15 @@ func printFileContents(dir string, files []string, excludePatterns []string, gre
 	}
 }
 
-func printFileList(files []string, excludePatterns []string, grepPattern string) {
+func printFileList(files []string, excludePatterns []string, includePatterns []string, grepPattern string) {
 	for _, file := range files {
-		// Skip excluded files
+		// Skip excluded files (exclude has priority)
 		if shouldExclude(file, excludePatterns) {
+			continue
+		}
+		
+		// Skip files that don't match include patterns
+		if !shouldInclude(file, includePatterns) {
 			continue
 		}
 		
@@ -208,6 +244,7 @@ func main() {
 	dirFlag := flag.String("dir", ".", "Directory to operate in")
 	dryFlag := flag.Bool("dry", false, "Only list files without showing contents")
 	excludeFlag := flag.String("exclude", "", "Comma-separated list of patterns to exclude (e.g. 'assets/,.png,.bin')")
+	includeFlag := flag.String("include", "", "Comma-separated list of patterns to include (e.g. '.go,.md')")
 	grepFlag := flag.String("grep", "", "Only include files matching this regex pattern (e.g. '(foo|bar).*')")
 
 	// Custom usage function to show both commands and flags
@@ -220,10 +257,15 @@ func main() {
 	// Parse flags
 	flag.Parse()
 
-	// Process exclude patterns
+	// Process exclude and include patterns
 	var excludePatterns []string
 	if *excludeFlag != "" {
 		excludePatterns = strings.Split(*excludeFlag, ",")
+	}
+	
+	var includePatterns []string
+	if *includeFlag != "" {
+		includePatterns = strings.Split(*includeFlag, ",")
 	}
 
 	// Check if directory is in a git repository
@@ -241,9 +283,9 @@ func main() {
 
 	if *dryFlag {
 		// Only print the list of files
-		printFileList(files, excludePatterns, *grepFlag)
+		printFileList(files, excludePatterns, includePatterns, *grepFlag)
 	} else {
 		// Print each file's name and contents
-		printFileContents(*dirFlag, files, excludePatterns, *grepFlag)
+		printFileContents(*dirFlag, files, excludePatterns, includePatterns, *grepFlag)
 	}
 }
