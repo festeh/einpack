@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -82,7 +83,7 @@ func listGitFiles(dir string) ([]string, error) {
 	return files, nil
 }
 
-// fileContainsPattern checks if a file contains the specified pattern
+// fileContainsPattern checks if a file contains the specified regex pattern
 func fileContainsPattern(filePath string, pattern string) bool {
 	if pattern == "" {
 		return true // If no pattern specified, all files match
@@ -94,7 +95,12 @@ func fileContainsPattern(filePath string, pattern string) bool {
 		return false
 	}
 
-	return strings.Contains(string(content), pattern)
+	matched, err := regexp.Match(pattern, content)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error with regex pattern '%s': %v\n", pattern, err)
+		return false
+	}
+	return matched
 }
 
 // shouldExclude checks if a file should be excluded based on the exclude patterns
@@ -170,7 +176,7 @@ func main() {
 	dirFlag := flag.String("dir", ".", "Directory to operate in")
 	dryFlag := flag.Bool("dry", false, "Only list files without showing contents")
 	excludeFlag := flag.String("exclude", "", "Comma-separated list of patterns to exclude (e.g. 'assets/,.png,.bin')")
-	grepFlag := flag.String("grep", "", "Only include files containing this pattern")
+	grepFlag := flag.String("grep", "", "Only include files matching this regex pattern (e.g. '(foo|bar).*')")
 
 	// Custom usage function to show both commands and flags
 	flag.Usage = func() {
