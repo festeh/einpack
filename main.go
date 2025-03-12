@@ -82,6 +82,21 @@ func listGitFiles(dir string) ([]string, error) {
 	return files, nil
 }
 
+// fileContainsPattern checks if a file contains the specified pattern
+func fileContainsPattern(filePath string, pattern string) bool {
+	if pattern == "" {
+		return true // If no pattern specified, all files match
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", filePath, err)
+		return false
+	}
+
+	return strings.Contains(string(content), pattern)
+}
+
 // shouldExclude checks if a file should be excluded based on the exclude patterns
 func shouldExclude(file string, excludePatterns []string) bool {
 	for _, pattern := range excludePatterns {
@@ -103,7 +118,7 @@ func shouldExclude(file string, excludePatterns []string) bool {
 	return false
 }
 
-func printFileContents(dir string, files []string, excludePatterns []string) {
+func printFileContents(dir string, files []string, excludePatterns []string, grepPattern string) {
 	for _, file := range files {
 		// Skip excluded files
 		if shouldExclude(file, excludePatterns) {
@@ -112,6 +127,11 @@ func printFileContents(dir string, files []string, excludePatterns []string) {
 		
 		// Construct full path
 		fullPath := filepath.Join(dir, file)
+		
+		// Skip files that don't contain the pattern
+		if !fileContainsPattern(fullPath, grepPattern) {
+			continue
+		}
 		
 		// Print file name
 		fmt.Printf("\n=== %s ===\n\n", file)
@@ -126,12 +146,21 @@ func printFileContents(dir string, files []string, excludePatterns []string) {
 	}
 }
 
-func printFileList(files []string, excludePatterns []string) {
+func printFileList(files []string, excludePatterns []string, grepPattern string) {
 	for _, file := range files {
 		// Skip excluded files
 		if shouldExclude(file, excludePatterns) {
 			continue
 		}
+		
+		// Construct full path for grep check
+		fullPath := filepath.Join(".", file)
+		
+		// Skip files that don't contain the pattern
+		if !fileContainsPattern(fullPath, grepPattern) {
+			continue
+		}
+		
 		fmt.Println(file)
 	}
 }
@@ -141,6 +170,7 @@ func main() {
 	dirFlag := flag.String("dir", ".", "Directory to operate in")
 	dryFlag := flag.Bool("dry", false, "Only list files without showing contents")
 	excludeFlag := flag.String("exclude", "", "Comma-separated list of patterns to exclude (e.g. 'assets/,.png,.bin')")
+	grepFlag := flag.String("grep", "", "Only include files containing this pattern")
 
 	// Custom usage function to show both commands and flags
 	flag.Usage = func() {
@@ -173,9 +203,9 @@ func main() {
 
 	if *dryFlag {
 		// Only print the list of files
-		printFileList(files, excludePatterns)
+		printFileList(files, excludePatterns, *grepFlag)
 	} else {
 		// Print each file's name and contents
-		printFileContents(*dirFlag, files, excludePatterns)
+		printFileContents(*dirFlag, files, excludePatterns, *grepFlag)
 	}
 }
