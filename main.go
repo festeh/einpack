@@ -89,6 +89,22 @@ func fileContainsPattern(filePath string, pattern string) bool {
 		return true // If no pattern specified, all files match
 	}
 
+	// Check if path exists and is not a directory
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Silently skip non-existent files
+			return false
+		}
+		fmt.Fprintf(os.Stderr, "Error accessing file %s: %v\n", filePath, err)
+		return false
+	}
+	
+	// Skip directories
+	if fileInfo.IsDir() {
+		return false
+	}
+
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", filePath, err)
@@ -136,6 +152,22 @@ func printFileContents(dir string, files []string, excludePatterns []string, gre
 		
 		// Skip files that don't contain the pattern
 		if !fileContainsPattern(fullPath, grepPattern) {
+			continue
+		}
+		
+		// Check if path exists and is not a directory
+		fileInfo, err := os.Stat(fullPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// Silently skip non-existent files
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "Error accessing file %s: %v\n", fullPath, err)
+			continue
+		}
+		
+		// Skip directories
+		if fileInfo.IsDir() {
 			continue
 		}
 		
