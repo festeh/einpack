@@ -83,6 +83,18 @@ func listGitFiles(dir string) ([]string, error) {
 	return files, nil
 }
 
+// countWordsInFile counts the number of words in a file
+func countWordsInFile(filePath string) (int, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return 0, err
+	}
+	
+	// Split content by whitespace and count non-empty words
+	words := strings.Fields(string(content))
+	return len(words), nil
+}
+
 // fileContainsPattern checks if a file contains the specified regex pattern
 func fileContainsPattern(filePath string, pattern string) bool {
 	if pattern == "" {
@@ -216,6 +228,8 @@ func printFileContents(dir string, files []string, excludePatterns []string, inc
 }
 
 func printFileList(files []string, excludePatterns []string, includePatterns []string, grepPattern string) {
+	totalWordCount := 0
+	
 	for _, file := range files {
 		// Skip excluded files (exclude has priority)
 		if shouldExclude(file, excludePatterns) {
@@ -235,7 +249,24 @@ func printFileList(files []string, excludePatterns []string, includePatterns []s
 			continue
 		}
 		
-		fmt.Println(file)
+		// Count words in the file
+		wordCount, err := countWordsInFile(fullPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error counting words in %s: %v\n", file, err)
+			fmt.Printf("%s (word count error)\n", file)
+			continue
+		}
+		
+		// Add to total word count
+		totalWordCount += wordCount
+		
+		// Print file with word count
+		fmt.Printf("%s (%d words)\n", file, wordCount)
+	}
+	
+	// Print total word count
+	if totalWordCount > 0 {
+		fmt.Printf("\nTotal: %d words\n", totalWordCount)
 	}
 }
 
