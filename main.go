@@ -155,42 +155,30 @@ func shouldExclude(file string, excludePatterns []string) bool {
 // shouldInclude checks if a file should be included based on the include patterns
 // Patterns can be grouped with semicolons (;) for AND logic - file must match at least
 // one pattern from each group to be included
-func shouldInclude(file string, includePatterns []string) bool {
-	// If no include patterns specified, include all files
-	if len(includePatterns) == 0 {
+func shouldInclude(file string, includePattern string) bool {
+	// If no include pattern specified, include all files
+	if includePattern == "" {
 		return true
 	}
 	
-	// Group patterns by semicolon for AND logic
-	var patternGroups [][]string
-	currentGroup := []string{}
-	
-	for _, pattern := range includePatterns {
-		// If pattern is a semicolon, start a new group
-		if pattern == ";" {
-			if len(currentGroup) > 0 {
-				patternGroups = append(patternGroups, currentGroup)
-				currentGroup = []string{}
-			}
-		} else {
-			currentGroup = append(currentGroup, pattern)
-		}
-	}
-	
-	// Add the last group if it's not empty
-	if len(currentGroup) > 0 {
-		patternGroups = append(patternGroups, currentGroup)
-	}
-	
-	// If no valid groups were created, treat all patterns as one group
-	if len(patternGroups) == 0 {
-		patternGroups = [][]string{includePatterns}
-	}
+	// Split the pattern by semicolons to get AND groups
+	groups := strings.Split(includePattern, ";")
 	
 	// File must match at least one pattern from each group
-	for _, group := range patternGroups {
+	for _, group := range groups {
+		if group == "" {
+			continue // Skip empty groups
+		}
+		
+		// Split the group by commas to get OR patterns
+		patterns := strings.Split(group, ",")
+		
 		matched := false
-		for _, pattern := range group {
+		for _, pattern := range patterns {
+			if pattern == "" {
+				continue // Skip empty patterns
+			}
+			
 			// Check if file starts with the pattern (directory inclusion)
 			if strings.HasPrefix(file, pattern) {
 				matched = true
@@ -228,7 +216,7 @@ func printFileContents(dir string, files []string, excludePatterns []string, inc
 		}
 		
 		// Skip files that don't match include patterns
-		if !shouldInclude(file, includePatterns) {
+		if !shouldInclude(file, *includeFlag) {
 			continue
 		}
 		
@@ -279,7 +267,7 @@ func printFileList(files []string, excludePatterns []string, includePatterns []s
 		}
 		
 		// Skip files that don't match include patterns
-		if !shouldInclude(file, includePatterns) {
+		if !shouldInclude(file, *includeFlag) {
 			continue
 		}
 		
@@ -336,32 +324,7 @@ func main() {
 		excludePatterns = strings.Split(*excludeFlag, ",")
 	}
 	
-	var includePatterns []string
-	if *includeFlag != "" {
-		// First split by commas for OR patterns
-		commaPatterns := strings.Split(*includeFlag, ",")
-		
-		// Process each comma-separated pattern
-		for _, pattern := range commaPatterns {
-			// If pattern contains semicolons, add them as separate entries
-			if strings.Contains(pattern, ";") {
-				// Split by semicolon and add each part plus a semicolon marker
-				parts := strings.Split(pattern, ";")
-				for i, part := range parts {
-					if part != "" {
-						includePatterns = append(includePatterns, part)
-					}
-					// Add semicolon marker between parts (but not after the last part)
-					if i < len(parts)-1 {
-						includePatterns = append(includePatterns, ";")
-					}
-				}
-			} else if pattern != "" {
-				// Add regular pattern
-				includePatterns = append(includePatterns, pattern)
-			}
-		}
-	}
+	// No preprocessing needed for includeFlag as it's handled directly in shouldInclude
 
 	// Check if directory is in a git repository
 	if !isGitRepo(*dirFlag) {
