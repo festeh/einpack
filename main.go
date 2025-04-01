@@ -153,29 +153,71 @@ func shouldExclude(file string, excludePatterns []string) bool {
 }
 
 // shouldInclude checks if a file should be included based on the include patterns
+// Patterns can be grouped with semicolons (;) for AND logic - file must match at least
+// one pattern from each group to be included
 func shouldInclude(file string, includePatterns []string) bool {
 	// If no include patterns specified, include all files
 	if len(includePatterns) == 0 {
 		return true
 	}
 	
+	// Group patterns by semicolon for AND logic
+	var patternGroups [][]string
+	currentGroup := []string{}
+	
 	for _, pattern := range includePatterns {
-		// Check if file starts with the pattern (directory inclusion)
-		if strings.HasPrefix(file, pattern) {
-			return true
-		}
-		
-		// Check if file ends with the pattern (extension inclusion)
-		if strings.HasSuffix(file, pattern) {
-			return true
-		}
-		
-		// Check if pattern is exactly the file
-		if file == pattern {
-			return true
+		// If pattern is a semicolon, start a new group
+		if pattern == ";" {
+			if len(currentGroup) > 0 {
+				patternGroups = append(patternGroups, currentGroup)
+				currentGroup = []string{}
+			}
+		} else {
+			currentGroup = append(currentGroup, pattern)
 		}
 	}
-	return false
+	
+	// Add the last group if it's not empty
+	if len(currentGroup) > 0 {
+		patternGroups = append(patternGroups, currentGroup)
+	}
+	
+	// If no valid groups were created, treat all patterns as one group
+	if len(patternGroups) == 0 {
+		patternGroups = [][]string{includePatterns}
+	}
+	
+	// File must match at least one pattern from each group
+	for _, group := range patternGroups {
+		matched := false
+		for _, pattern := range group {
+			// Check if file starts with the pattern (directory inclusion)
+			if strings.HasPrefix(file, pattern) {
+				matched = true
+				break
+			}
+			
+			// Check if file ends with the pattern (extension inclusion)
+			if strings.HasSuffix(file, pattern) {
+				matched = true
+				break
+			}
+			
+			// Check if pattern is exactly the file
+			if file == pattern {
+				matched = true
+				break
+			}
+		}
+		
+		// If no pattern in this group matched, file should be excluded
+		if !matched {
+			return false
+		}
+	}
+	
+	// File matched at least one pattern from each group
+	return true
 }
 
 func printFileContents(dir string, files []string, excludePatterns []string, includePatterns []string, grepPattern string) {
@@ -275,7 +317,7 @@ func main() {
 	dirFlag := flag.String("dir", ".", "Directory to operate in")
 	dryFlag := flag.Bool("dry", false, "Only list files without showing contents")
 	excludeFlag := flag.String("exclude", "", "Comma-separated list of patterns to exclude (e.g. 'assets/,.png,.bin')")
-	includeFlag := flag.String("include", "", "Comma-separated list of patterns to include (e.g. '.go,.md')")
+	includeFlag := flag.String("include", "", "Patterns to include: comma-separated for OR logic, semicolon-separated groups for AND logic (e.g. '.go,.md' or 'src;.go,.cpp')")
 	grepFlag := flag.String("grep", "", "Only include files matching this regex pattern (e.g. '(foo|bar).*')")
 
 	// Custom usage function to show both commands and flags
@@ -296,7 +338,29 @@ func main() {
 	
 	var includePatterns []string
 	if *includeFlag != "" {
-		includePatterns = strings.Split(*includeFlag, ",")
+		// First split by commas for OR patterns
+		commaPatterns := strings.Split(*includeFlag, ",")
+		
+		// Process each comma-separated pattern
+		for _, pattern := range commaPatterns {
+			// If pattern contains semicolons, add them as separate entries
+			if strings.Contains(pattern, ";") {
+				// Split by semicolon and add each part plus a semicolon marker
+				parts := strings.Split(pattern, ";")
+				for i, part := range parts {
+					if part != "" {
+						includePatterns = append(includePatterns, part)
+					}
+					// Add semicolon marker between parts (but not after the last part)
+					if i < len(parts)-1 {
+						includePatterns = append(includePatterns, ";")
+					}
+				}
+			} else if pattern != "" {
+				// Add regular pattern
+				includePatterns = append(includePatterns, pattern)
+			}
+		}
 	}
 
 	// Check if directory is in a git repository
