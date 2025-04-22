@@ -208,7 +208,7 @@ func shouldInclude(file string, includePattern string) bool {
 	return true
 }
 
-func printFileContents(dir string, files []string, excludePatterns []string, includePatterns []string, grepPattern string) {
+func printFileContents(dir string, files []string, excludePatterns []string, includePatterns string, grepPattern string) {
 	for _, file := range files {
 		// Skip excluded files (exclude has priority)
 		if shouldExclude(file, excludePatterns) {
@@ -216,7 +216,7 @@ func printFileContents(dir string, files []string, excludePatterns []string, inc
 		}
 		
 		// Skip files that don't match include patterns
-		if !shouldInclude(file, *includeFlag) {
+		if !shouldInclude(file, includePatterns) {
 			continue
 		}
 		
@@ -257,7 +257,7 @@ func printFileContents(dir string, files []string, excludePatterns []string, inc
 	}
 }
 
-func printFileList(files []string, excludePatterns []string, includePatterns []string, grepPattern string) {
+func printFileList(files []string, excludePatterns []string, includeFlag string, grepPattern string) {
 	totalWordCount := 0
 	
 	for _, file := range files {
@@ -267,7 +267,7 @@ func printFileList(files []string, excludePatterns []string, includePatterns []s
 		}
 		
 		// Skip files that don't match include patterns
-		if !shouldInclude(file, *includeFlag) {
+		if !shouldInclude(file, includeFlag) {
 			continue
 		}
 		
@@ -324,8 +324,6 @@ func main() {
 		excludePatterns = strings.Split(*excludeFlag, ",")
 	}
 	
-	// No preprocessing needed for includeFlag as it's handled directly in shouldInclude
-
 	// Check if directory is in a git repository
 	if !isGitRepo(*dirFlag) {
 		fmt.Fprintf(os.Stderr, "Error: %s is not in a git repository\n", *dirFlag)
@@ -341,9 +339,9 @@ func main() {
 
 	if *dryFlag {
 		// Only print the list of files
-		printFileList(files, excludePatterns, includePatterns, *grepFlag)
+		printFileList(files, excludePatterns, *includeFlag, *grepFlag)
 	} else {
 		// Print each file's name and contents
-		printFileContents(*dirFlag, files, excludePatterns, includePatterns, *grepFlag)
+		printFileContents(*dirFlag, files, excludePatterns, *includeFlag, *grepFlag)
 	}
 }
