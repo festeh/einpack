@@ -232,17 +232,6 @@ func printFileContents(dir string, files []string, excludePatterns []string, inc
 		// Construct full path
 		fullPath := filepath.Join(dir, file)
 
-		// Skip files containing null byte if requested
-		if noZero {
-			containsNull, err := fileContainsNullByte(fullPath)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error checking for null byte in %s: %v\n", fullPath, err)
-				continue // Skip file on error
-			}
-			if containsNull {
-				continue // Skip file if it contains null byte
-			}
-		}
 
 		// Skip files that don't contain the pattern
 		if !fileContainsPattern(fullPath, grepPattern) {
@@ -263,6 +252,18 @@ func printFileContents(dir string, files []string, excludePatterns []string, inc
 		// Skip directories
 		if fileInfo.IsDir() {
 			continue
+		}
+
+		// Skip files containing null byte if requested
+		if noZero {
+			containsNull, err := fileContainsNullByte(fullPath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error checking for null byte in %s: %v\n", fullPath, err)
+				continue // Skip file on error
+			}
+			if containsNull {
+				continue // Skip file if it contains null byte
+			}
 		}
 		
 		// Print file name
