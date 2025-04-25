@@ -95,6 +95,15 @@ func countWordsInFile(filePath string) (int, error) {
 	return len(words), nil
 }
 
+// fileContainsNullByte checks if a file contains a null byte
+func fileContainsNullByte(filePath string) (bool, error) {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Contains(content, []byte{0}), nil
+}
+
 // fileContainsPattern checks if a file contains the specified regex pattern
 func fileContainsPattern(filePath string, pattern string) bool {
 	if pattern == "" {
@@ -208,7 +217,7 @@ func shouldInclude(file string, includePattern string) bool {
 	return true
 }
 
-func printFileContents(dir string, files []string, excludePatterns []string, includePatterns string, grepPattern string) {
+func printFileContents(dir string, files []string, excludePatterns []string, includePatterns string, grepPattern string, noZero bool) {
 	for _, file := range files {
 		// Skip excluded files (exclude has priority)
 		if shouldExclude(file, excludePatterns) {
@@ -222,12 +231,24 @@ func printFileContents(dir string, files []string, excludePatterns []string, inc
 		
 		// Construct full path
 		fullPath := filepath.Join(dir, file)
-		
+
+		// Skip files containing null byte if requested
+		if noZero {
+			containsNull, err := fileContainsNullByte(fullPath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error checking for null byte in %s: %v\n", fullPath, err)
+				continue // Skip file on error
+			}
+			if containsNull {
+				continue // Skip file if it contains null byte
+			}
+		}
+
 		// Skip files that don't contain the pattern
 		if !fileContainsPattern(fullPath, grepPattern) {
 			continue
 		}
-		
+
 		// Check if path exists and is not a directory
 		fileInfo, err := os.Stat(fullPath)
 		if err != nil {
@@ -257,9 +278,9 @@ func printFileContents(dir string, files []string, excludePatterns []string, inc
 	}
 }
 
-func printFileList(files []string, excludePatterns []string, includeFlag string, grepPattern string) {
+func printFileList(files []string, excludePatterns []string, includeFlag string, grepPattern string, noZero bool) {
 	totalWordCount := 0
-	
+
 	for _, file := range files {
 		// Skip excluded files (exclude has priority)
 		if shouldExclude(file, excludePatterns) {
@@ -271,14 +292,26 @@ func printFileList(files []string, excludePatterns []string, includeFlag string,
 			continue
 		}
 		
-		// Construct full path for grep check
+		// Construct full path for checks
 		fullPath := filepath.Join(".", file)
-		
+
+		// Skip files containing null byte if requested
+		if noZero {
+			containsNull, err := fileContainsNullByte(fullPath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error checking for null byte in %s: %v\n", fullPath, err)
+				continue // Skip file on error
+			}
+			if containsNull {
+				continue // Skip file if it contains null byte
+			}
+		}
+
 		// Skip files that don't contain the pattern
 		if !fileContainsPattern(fullPath, grepPattern) {
 			continue
 		}
-		
+
 		// Count words in the file
 		wordCount, err := countWordsInFile(fullPath)
 		if err != nil {
@@ -307,6 +340,7 @@ func main() {
 	excludeFlag := flag.String("exclude", "", "Comma-separated list of patterns to exclude (e.g. 'assets/,.png,.bin')")
 	includeFlag := flag.String("include", "", "Patterns to include: comma-separated for OR logic, semicolon-separated groups for AND logic (e.g. '.go,.md' or 'src;.go,.cpp')")
 	grepFlag := flag.String("grep", "", "Only include files matching this regex pattern (e.g. '(foo|bar).*')")
+	noZeroFlag := flag.Bool("no-zero", false, "Exclude files containing null bytes")
 
 	// Custom usage function to show both commands and flags
 	flag.Usage = func() {
@@ -339,9 +373,9 @@ func main() {
 
 	if *dryFlag {
 		// Only print the list of files
-		printFileList(files, excludePatterns, *includeFlag, *grepFlag)
+		printFileList(files, excludePatterns, *includeFlag, *grepFlag, *noZeroFlag)
 	} else {
 		// Print each file's name and contents
-		printFileContents(*dirFlag, files, excludePatterns, *includeFlag, *grepFlag)
+		printFileContents(*dirFlag, files, excludePatterns, *includeFlag, *grepFlag, *noZeroFlag)
 	}
 }
